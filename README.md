@@ -7,6 +7,7 @@ MOffsetTester allows you to perform memory patches by writing data and also Log 
 1) Copy the MaskPatcher folder to your project.
 2) ```CustomView * cv = [[CustomView alloc]initWithFrame:CGRectMake(0, 0, main.frame.size.width/2, main.frame.size.height*1.8/3):main];``` to initialize the root view. 
 3) Check the Tweak.xm for further details
+4) ```#import "MaskPatcher/CustomView.h"```
 
 ## Usage
 
