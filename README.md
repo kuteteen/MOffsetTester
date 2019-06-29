@@ -20,4 +20,4 @@ IOS 10,11,12,electra,chimera,uncover
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change. 
 
-<a href="url"><img src="pubg.gif" align="left" height="250" width="250" ></a>
+<a href="url"><img src="pubg.gif" align="left" height="320" width="450" ></a>
