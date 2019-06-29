@@ -120,11 +120,11 @@ bool isOpen;
 - (void)showView {
     if(isOpen) {
         self.hidden = TRUE;
-        [LogView MLog:@"Touch"];
+        //[LogView MLog:@"Touch"];
         isOpen = !isOpen;
     }else {
         self.hidden = FALSE;
-        [LogView MLog:@"Touch!"];
+        //[LogView MLog:@"Touch!"];
         isOpen = !isOpen;
     }
 }

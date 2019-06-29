@@ -32,7 +32,7 @@ UITextView * txt;
         txt.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.4];
         txt.textColor = [UIColor whiteColor];
         txt.userInteractionEnabled = FALSE;
-        [self textFieldShouldReturn:txt];
+        [self addSubview:txt];
         
         
     }

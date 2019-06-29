@@ -29,7 +29,7 @@ static void (*_logos_orig$_ungrouped$IOSAppDelegate$applicationDidBecomeActive$)
 
 
 static void _logos_method$_ungrouped$IOSAppDelegate$applicationDidBecomeActive$(_LOGOS_SELF_TYPE_NORMAL IOSAppDelegate* _LOGOS_SELF_CONST __unused self, SEL __unused _cmd, id arg0) {
-    UIWindow *main = [UIApplication sharedApplication].keyWindow.rootViewController.view;
+    
     if(!buttonAdded){
         timer(5){
             UIWindow *main = [UIApplication sharedApplication].keyWindow.rootViewController.view;
