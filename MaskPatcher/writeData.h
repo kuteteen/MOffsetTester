@@ -1,184 +1,90 @@
-//**************************************************//
-//**This Header File is used in combination********//
-//**with a dynamic Library and must be rewritten**//
-//**if you want to use it for another purpose****//
-//**********************************************//
 
-//******************************************//
-//**Credits: HackJack & Razzile(Kamizoom)**//
-//****************************************//
+//
+//  writeData.h
+//
+//  Created by maskman on 6/27/19.
+//  Copyright © 2019 maskman. All rights reserved.
+//  Inspired by https://gist.github.com/Razzile/e06957b1dc6e865b7d8377f8afe96554
+//  Tested on ios10,11,12
+//  For Uncover Jailbreak users please turn on get-task-allow and CS_DEBUGGED
 
-//********************************************//
-//**Usage: writeData(0xOFFSET, 0xDATA)*******//
-//******************************************//
-
-//importing and including files
-
-#include <substrate.h>
 #include <mach-o/dyld.h>
 #include <mach/mach.h>
 #include <dlfcn.h>
 #include <stdio.h>
+#include "LogView.h"
 
-/* temporary solution to deal with IOS10,11,12,electra,chimera, and uncover */
-bool cydiaExist(){
-  bool ret = false;
-  FILE *f = NULL;
-  if(( f = fopen( "/Applications/Cydia.app" , "r" ) ) 
-  || ( f = fopen( "/Library/MobileSubstrate/MobileSubstrate.dylib" , "r" ) ) 
-  || ( f = fopen( "/System/Library/LaunchDaemons/com.saurik.Cydia.Startup.plist" , "r" ) )){
-      ret = true;
-  }
-  if(f != NULL){
-    fclose(f);
-  }
-  return ret;
-}
+#define kCFCoreFoundationVersionNumber_iOS_12_0 1535.12
+#define kCFCoreFoundationVersionNumber_iOS_11_3 1452.23
+#define kCFCoreFoundationVersionNumber_iOS_11_0 1443.00
 
-typedef void (*mshookmemory_ptr_t)(void *target, const void *data, size_t size);
-
-/*
-This Function checks if the Application has ASLR enabled.
-It gets the mach_header of the Image at Index 0.
-It then checks for the MH_PIE flag. If it is there, it returns TRUE.
-Parameters: nil
-Return: Wether it has ASLR or not
-*/
-
-bool hasASLR()
-{
-
-    const struct mach_header *mach;
-
-    mach = _dyld_get_image_header(0);
-
-    if (mach->flags & MH_PIE)
-    {
-
-        //has aslr enabled
-        return true;
-    }
-    else
-    {
-
-        //has aslr disabled
-        return false;
-    }
-}
-
-/*
-This Function gets the vmaddr slide of the Image at Index 0.
-Parameters: nil
-Return: the vmaddr slide
-*/
-
-uintptr_t get_slide()
+/* Get ASLR to bypass memory randomization */
+uintptr_t getASLR()
 {
     return _dyld_get_image_vmaddr_slide(0);
 }
 
-/*
-This Function calculates the Address if ASLR is enabled or returns the normal offset.
-Parameters: The Original Offset
-Return: Either the Offset or the New calculated Offset if ASLR is enabled
-*/
-
-uintptr_t calculateAddress(uintptr_t offset)
+uintptr_t calculateASLRAddress(uintptr_t offset) {
+    uintptr_t slide = getASLR();
+    return (slide + offset);
+}
+/* Get data type */
+int getType(unsigned long long data)
 {
+    int num =  (int)log2(data)+1;
+    if(num > 16 && num <= 32) return 1;
+    else if(num > 32 && num <= 64) return 2;
+    else if(num <= 16) return 3;
+    
+    return 0;
+}
+/* write data to memory - 2,4,or 8 bytes */
 
-    if (hasASLR())
-    {
-
-        uintptr_t slide = get_slide();
-
-        return (slide + offset);
+bool writeData(uintptr_t offset, unsigned long long data) {
+    kern_return_t err;
+    mach_port_t port = mach_task_self();
+    vm_address_t address = calculateASLRAddress(offset);
+    
+    //[LogView MLog:[NSString stringWithFormat:@"%lf", kCFCoreFoundationVersionNumber]];
+    
+    int type = getType(data);
+    if(type == 1) {
+        [LogView MLog:@"32 BITS"];
+        data = (unsigned int)data;
+        data = _OSSwapInt32(data);
+    }else if(type == 2) {
+        [LogView MLog:@"64 BITS"];
+        data = _OSSwapInt64(data);
+    }else if(type == 3) {
+        data = (unsigned short)data;
+        data = _OSSwapInt16(data);
+    }else {
+        [LogView MLog:@"Invalid bytes"];
+        return false;
     }
-    else
-    {
-
-        return offset;
+    /* Set virtual memory permissions so that we can write */
+    
+    err = vm_protect(port, (vm_address_t)address, sizeof(data), false, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY);
+    if (err != KERN_SUCCESS) {
+        [LogView MLog:@"vm_protect failure"];
+        return false;
     }
-}
-/*
-This function calculates the size of the data passed as an argument. 
-It returns 1 if 4 bytes and 0 if 2 bytes
-Parameters: data to be written
-Return: True = 4 bytes/higher or False = 2 bytes
-*/
-
-bool getType(unsigned int data)
-{
-    int a = data & 0xffff8000;
-    int b = a + 0x00008000;
-
-    int c = b & 0xffff7fff;
-    return c;
+    volatile uint64_t * const p_write = ((uint64_t *) address);
+    *p_write = data;
+    /* inline asm can also be used to write data */
+    // asm volatile (
+    //     "mov x0, %x[data];"
+    //     "mov %x[p_write], x0;"
+    //     : [p_write] "=r" (*p_write)
+    //     : [data] "r" (data)
+    //     : "x0"
+    // );
+    /* Set permissions back */
+    err = vm_protect(port, (vm_address_t)address, sizeof(data), false, VM_PROT_READ | VM_PROT_EXECUTE);
+    return true;
 }
 
-/*
-writeData(offset, data) writes the bytes of data to offset
-this version is crafted to take use of MSHookMemory as 
-mach_vm functions are causing problems with codesigning on iOS 12.
-Hopefully this workaround is just temporary.
-*/
 
-bool writeData(uintptr_t offset, unsigned int data)
-{
-	if(cydiaExist()){
-      static mshookmemory_ptr_t MSHookMemory_;
-	  if(!MSHookMemory_) MSHookMemory_ = (mshookmemory_ptr_t)MSFindSymbol(NULL, "_MSHookMemory");
 
-      // MSHookMemory is supported, use that instead of vm_write
-      if (MSHookMemory_)
-      {
-          if (getType(data))
-          {
-              data = CFSwapInt32(data);
-              MSHookMemory_((void *)(offset + get_slide()), &data, 4);
-          }
-          else
-          {
-              data = CFSwapInt16(data);
-              MSHookMemory_((void *)(offset + get_slide()), &data, 2);
-          }
-          return true;
-      }
-	}
-        kern_return_t err;
-        mach_port_t port = mach_task_self();
-        vm_address_t address = calculateAddress(offset);
 
-        //set memory protections to allow us writing code there
 
-        err = vm_protect(port, (vm_address_t)address, sizeof(data), false, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY);
-
-        //check if the protection fails
-
-        if (err != KERN_SUCCESS)
-        {
-            return false;
-        }
-
-        //write code to memory
-
-        if (getType(data))
-        {
-            data = CFSwapInt32(data);
-            err = vm_write(port, address, (vm_address_t)&data, sizeof(data));
-        }
-        else
-        {
-            data = (unsigned short)data;
-            data = CFSwapInt16(data);
-            err = vm_write(port, address, (vm_address_t)&data, sizeof(data));
-        }
-        if (err != KERN_SUCCESS)
-        {
-            return FALSE;
-        }
-        //set the protections back to normal so the app can access this address as usual
-
-        err = vm_protect(port, (vm_address_t)address, sizeof(data), false, VM_PROT_READ | VM_PROT_EXECUTE);
-
-        return TRUE;
-}
