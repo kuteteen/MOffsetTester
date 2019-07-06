@@ -20,4 +20,3 @@ For uncover users please turn on ```get-task-allow and CS_DEBUGGED```
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change. 
 
-<a href="url"><img src="pubg.gif" align="left" height="320" width="450" ></a>
